@@ -48,11 +48,11 @@ class ContestManager(commands.Cog):
             return
 
         if message.channel.id != submission_channel.id:
-            await log_to_logs_channel(
-                title="Invalid Submission Location",
-                description=f"{message.author.mention} tried to submit in <#{message.channel.id}> instead of <#{submission_channel.id}>.",
-                color=discord.Color.orange()
-            )
+            #await log_to_logs_channel(
+            #    title="Invalid Submission Location",
+            #    description=f"{message.author.mention} tried to submit in <#{message.channel.id}> instead of <#{submission_channel.id}>.",
+            #    color=discord.Color.orange()
+            #)
             return
 
         if not attachment:
