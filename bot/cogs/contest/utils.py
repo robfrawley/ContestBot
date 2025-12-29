@@ -105,7 +105,6 @@ async def get_logs_channel(bot, guild_id):
     return guild.get_channel(config["contest_logs_channel"]) if "contest_logs_channel" in config else None
 
 
-
 async def get_discord_file_from_url(url: str, filename: str = None) -> discord.File:
     """
     Downloads a file from a URL and returns a discord.File object.
@@ -124,3 +123,19 @@ async def get_discord_file_from_url(url: str, filename: str = None) -> discord.F
                 raise Exception(f"Failed to fetch file: HTTP {resp.status}")
             data = io.BytesIO(await resp.read())
             return discord.File(data, filename=filename)
+
+
+def build_discord_embed(title: str = "", description: str = "", color: discord.Color = discord.Color.blue()) -> discord.Embed:
+    embed = discord.Embed(
+        title = title,
+        description = description,
+        color = color,
+        timestamp = discord.utils.utcnow()
+    )
+
+    embed.set_author(
+        name="Invisigal",
+        icon_url="https://src.run/get/media/images/dispatch/visi-large-white-bg-with-border.png"
+    )
+
+    return embed

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from bot.cogs.contest.utils import get_logs_channel, get_contest_role, get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_submission_channel, get_voting_channel
+from bot.cogs.contest.utils import get_logs_channel, get_contest_role, get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_submission_channel, get_voting_channel, build_discord_embed
 from bot.core.error_embed import create_logs_embed
 
 
@@ -49,15 +49,7 @@ class ContestCommands(commands.Cog):
         await ctx.defer()
 
         logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
-        if logs_channel:
-            logs_embed = create_logs_embed(
-                title="Submission channel set",
-                description=f"Submission channel set to <#{channel.id}>" if channel else "Submission channel unset",
-                color=discord.Color.green() if channel else discord.Color.red()
-            )
-            await logs_channel.send(
-                embed=logs_embed
-            )
+        logs_channel_color = discord.Color.green() if channel else discord.Color.red()
 
         if channel is None:
             channel = ctx.channel
@@ -67,16 +59,29 @@ class ContestCommands(commands.Cog):
                 {"_id": ctx.guild.id},
                 {"$set": {"submission_channel": channel.id}},
                 upsert=True)
-            await ctx.send(f"<#{channel.id}> is set as submission channel")
+
+            if logs_channel:
+                await logs_channel.send(
+                    embed=build_discord_embed(
+                        title="Configure Submission Channel",
+                        description=f"The contest bot submission channel is set to <#{channel.id}>!",
+                        color=logs_channel_color
+                    )
+                )
+
+            if channel not logs_channel:
+                await ctx.send(f"Set contest bot submission channel: <#{channel.id}>")
+
         except Exception as e:
             if logs_channel:
                 await logs_channel.send(
-                    embed=create_logs_embed(
+                    embed=build_discord_embed(
                         title="Error setting submission channel",
                         description=f"Error: {e}",
                         color=discord.Color.red()
                     )
                 )
+
             await ctx.send(f"Error: {e}")
 
 
