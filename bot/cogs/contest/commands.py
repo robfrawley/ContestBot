@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from bot.cogs.contest.utils import get_logs_channel
+from bot.cogs.contest.utils import get_logs_channel, get_contest_role, get_announcement_channel, get_ping_role, get_archive_channel, get_submission_channel, get_voting_channel
 from bot.core.error_embed import create_logs_embed
 
 
@@ -11,8 +11,38 @@ class ContestCommands(commands.Cog):
         self.collection = self.bot.db["ServerConfig"]
 
 
-    @commands.hybrid_command(name="contest_submission_channel", description="Select submission channel")
-    async def contest_submission_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
+    @commands.hybrid_command(name="contest_apply_role_to_all", description="Apply contest role to all members")
+    async def contest_apply_role_to_all(self, ctx: commands.Context, *, role: discord.Role = None):
+        await ctx.defer()
+
+        logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
+        role_name = await get_contest_role(self.bot, guild_id=ctx.guild.id)
+        if logs_channel:
+            if role:
+                logs_embed = create_logs_embed(
+                    title="Applying contest role",
+                    description=f"Applying role of \"{role_name if role_name else 'None'}\" to {len(ctx.guild.members)} members",
+                    color=discord.Color.green() if role_name else discord.Color.red()
+                )
+            await logs_channel.send(
+                embed=logs_embed
+            )
+
+        if role_name is None:
+            await logs_channel.send("Please specify a role.")
+            return
+        else:
+            for member in ctx.guild.members:
+                if not member.bot:
+                    try:
+                        print(f"Adding {role_name} role to {member.name}")
+                        #await member.add_roles(role_name, reason=f"Applying contest role to all member: {member.name}")
+                    except Exception as e:
+                        print(f"Failed to add role {role_name} to {member.name}: {e}")
+
+
+    @commands.hybrid_command(name="contest_set_submission_channel", description="Select submission channel")
+    async def contest_set_submission_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
         await ctx.defer()
 
         logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
@@ -46,8 +76,20 @@ class ContestCommands(commands.Cog):
                 )
             await ctx.send(f"Error: {e}")
 
-    @commands.hybrid_command(name="contest_voting_channel", description="Select voting channel")
-    async def contest_voting_channel(self, ctx: commands.Context, *, channel: discord.ForumChannel = None):
+
+    @commands.hybrid_command(name="contest_get_submission_channel", description="Get submission channel")
+    async def contest_get_submission_channel(self, ctx: commands.Context):
+        await ctx.defer()
+
+        submission_channel = await get_submission_channel(self.bot, guild_id=ctx.guild.id)
+        if submission_channel:
+            await ctx.send(f"Submission channel is set to <#{submission_channel.id}>")
+        else:
+            await ctx.send("Submission channel is not set.")
+
+
+    @commands.hybrid_command(name="contest_set_voting_channel", description="Select voting channel")
+    async def contest_set_voting_channel(self, ctx: commands.Context, *, channel: discord.ForumChannel = None):
         await ctx.defer()
         if channel is None:
             channel = ctx.channel
@@ -69,8 +111,20 @@ class ContestCommands(commands.Cog):
         except Exception as e:
             await ctx.send(f"Error: {e}")
 
-    @commands.hybrid_command(name="contest_role", description="Select contest role")
-    async def contest_role(self, ctx: commands.Context, *, role: discord.Role = None):
+
+    @commands.hybrid_command(name="contest_get_voting_channel", description="Get voting channel")
+    async def contest_get_voting_channel(self, ctx: commands.Context):
+        await ctx.defer()
+
+        voting_channel = await get_voting_channel(self.bot, guild_id=ctx.guild.id)
+        if voting_channel:
+            await ctx.send(f"Voting channel is set to <#{voting_channel.id}>")
+        else:
+            await ctx.send("Voting channel is not set.")
+
+
+    @commands.hybrid_command(name="contest_set_role", description="Select contest role")
+    async def contest_set_role(self, ctx: commands.Context, *, role: discord.Role = None):
         await ctx.defer()
         if role is None:
             await ctx.send("Please specify a role.")
@@ -106,8 +160,20 @@ class ContestCommands(commands.Cog):
         except Exception as e:
             await ctx.send(f"Error: {e}")
 
-    @commands.hybrid_command(name="contest_announcement_channel", description="Select announcement channel")
-    async def contest_announcement_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
+
+    @commands.hybrid_command(name="contest_get_role", description="Get contest role")
+    async def contest_get_role(self, ctx: commands.Context):
+        await ctx.defer()
+
+        contest_role = await get_contest_role(self.bot, guild_id=ctx.guild.id)
+        if contest_role:
+            await ctx.send(f"Contest role is set to <@&{contest_role.id}>")
+        else:
+            await ctx.send("Contest role is not set.")
+
+
+    @commands.hybrid_command(name="contest_set_announcement_channel", description="Select announcement channel")
+    async def contest_set_announcement_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
         await ctx.defer()
         if channel is None:
             channel = ctx.channel
@@ -126,8 +192,20 @@ class ContestCommands(commands.Cog):
         except Exception as e:
             await ctx.send(f"Error: {e}")
 
-    @commands.hybrid_command(name="contest_ping_role", description="Select contest ping role")
-    async def contest_ping_role(self, ctx: commands.Context, *, role: discord.Role = None):
+
+    @commands.hybrid_command(name="contest_get_announcement_channel", description="Get announcement channel")
+    async def contest_get_announcement_channel(self, ctx: commands.Context):
+        await ctx.defer()
+
+        announcement_channel = await get_announcement_channel(self.bot, guild_id=ctx.guild.id)
+        if announcement_channel:
+            await ctx.send(f"Announcement channel is set to <#{announcement_channel.id}>")
+        else:
+            await ctx.send("Announcement channel is not set.")
+
+
+    @commands.hybrid_command(name="contest_set_ping_role", description="Select contest ping role")
+    async def contest_set_ping_role(self, ctx: commands.Context, *, role: discord.Role = None):
         await ctx.defer()
         if role is None:
             await ctx.send("Please specify a role.")
@@ -145,8 +223,20 @@ class ContestCommands(commands.Cog):
         except Exception as e:
             await ctx.send(f"Error: {e}")
 
-    @commands.hybrid_command(name="contest_archive_channel", description="Select art archive channel")
-    async def contest_archive_channel(self, ctx: commands.Context, *, channel: discord.ForumChannel = None):
+
+    @commands.hybrid_command(name="contest_get_ping_role", description="Get contest ping role")
+    async def contest_get_ping_role(self, ctx: commands.Context):
+        await ctx.defer()
+
+        ping_role = await get_ping_role(self.bot, guild_id=ctx.guild.id)
+        if ping_role:
+            await ctx.send(f"Contest ping role is set to <@&{ping_role.id}>")
+        else:
+            await ctx.send("Contest ping role is not set.")
+
+
+    @commands.hybrid_command(name="contest_set_archive_channel", description="Select art archive channel")
+    async def contest_set_archive_channel(self, ctx: commands.Context, *, channel: discord.ForumChannel = None):
         await ctx.defer()
         if channel is None:
             channel = ctx.channel
@@ -164,8 +254,20 @@ class ContestCommands(commands.Cog):
         except Exception as e:
             await ctx.send(f"Error: {e}")
 
-    @commands.hybrid_command(name="contest_logs_channel", description="Select bot log channel")
-    async def contest_logs_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
+
+    @commands.hybrid_command(name="contest_get_archive_channel", description="Get archive channel")
+    async def contest_get_archive_channel(self, ctx: commands.Context):
+        await ctx.defer()
+
+        archive_channel = await get_archive_channel(self.bot, guild_id=ctx.guild.id)
+        if archive_channel:
+            await ctx.send(f"Archive channel is set to <#{archive_channel.id}>")
+        else:
+            await ctx.send("Archive channel is not set.")
+
+
+    @commands.hybrid_command(name="contest_set_logs_channel", description="Select bot log channel")
+    async def contest_set_logs_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
         await ctx.defer()
         if channel is None:
             channel = ctx.channel
@@ -182,6 +284,17 @@ class ContestCommands(commands.Cog):
             await ctx.send(f"<#{channel.id}> is set as bot log channel")
         except Exception as e:
             await ctx.send(f"Error: {e}")
+
+
+    @commands.hybrid_command(name="contest_get_logs_channel", description="Get logs channel")
+    async def get_logs_channel(self, ctx: commands.Context):
+        await ctx.defer()
+
+        logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
+        if logs_channel:
+            await ctx.send(f"Logs channel is set to <#{logs_channel.id}>")
+        else:
+            await ctx.send("Logs channel is not set.")
 
     @commands.hybrid_command(name="contest_create_channel", description="Create contest channel")
     async def contest_create_channel(self, ctx: commands.Context):
