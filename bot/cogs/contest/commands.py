@@ -17,31 +17,31 @@ class ContestCommands(commands.Cog):
 
         logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
         role_name = role if role else await get_contest_role(self.bot, guild_id=ctx.guild.id)
-        if logs_channel:
-            if role_name:
-                logs_embed = create_logs_embed(
-                    title="Applying contest role",
-                    description=f"Applying role of \"{role_name if role_name else 'None'}\" to {len(ctx.guild.members)} members",
-                    color=discord.Color.green() if role_name else discord.Color.red()
-                )
-                await logs_channel.send(
-                    embed=logs_embed
-                )
 
-        if role_name is None and logs_channel:
+        if role_name is None:
             print(f"Contest role not set for guild {ctx.guild.id}")
-            await logs_channel.send("Please specify a role.")
+            await ctx.send("Contest role is not set. Please set it using the contest_set_role command.")
             return
-        else:
-            for member in ctx.guild.members:
-                if not member.bot:
-                    try:
-                        print(f"Adding {role_name} role to {member.name}")
-                        #await member.add_roles(role_name, reason=f"Applying contest role to all member: {member.name}")
-                    except Exception as e:
-                        print(f"Failed to add role {role_name} to {member.name}: {e}")
 
-        await ctx.send("Finished applying contest role to all members.")
+        for member in ctx.guild.members:
+            if not member.bot:
+                try:
+                    print(f"Adding {role_name} role to {member.name}")
+                    await member.add_roles(role_name, reason=f"Applying contest role to all member: {member.name}")
+                except Exception as e:
+                    print(f"Failed to add role {role_name} to {member.name}: {e}")
+
+        if logs_channel:
+            logs_embed = create_logs_embed(
+                title="Contest role",
+                description=f"Applied role of \"{role_name if role_name else 'None'}\" to {len(ctx.guild.members)} members",
+                color=discord.Color.green() if role_name else discord.Color.red()
+            )
+            await logs_channel.send(
+                embed=logs_embed
+            )
+        else:
+            await ctx.send("Finished applying contest role to all members.")
 
 
     @commands.hybrid_command(name="contest_set_submission_channel", description="Select submission channel")
