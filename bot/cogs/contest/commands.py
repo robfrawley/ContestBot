@@ -16,7 +16,7 @@ class ContestCommands(commands.Cog):
         await ctx.defer()
 
         logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
-        role_name = await get_contest_role(self.bot, guild_id=ctx.guild.id)
+        role_name = role if role else await get_contest_role(self.bot, guild_id=ctx.guild.id)
         if logs_channel:
             if role_name:
                 logs_embed = create_logs_embed(
@@ -40,6 +40,8 @@ class ContestCommands(commands.Cog):
                         #await member.add_roles(role_name, reason=f"Applying contest role to all member: {member.name}")
                     except Exception as e:
                         print(f"Failed to add role {role_name} to {member.name}: {e}")
+
+        await ctx.send("Finished applying contest role to all members.")
 
 
     @commands.hybrid_command(name="contest_set_submission_channel", description="Select submission channel")
