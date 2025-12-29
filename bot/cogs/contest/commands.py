@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from bot.cogs.contest.utils import get_logs_channel, get_contest_role, get_announcement_channel, get_ping_role, get_archive_channel, get_submission_channel, get_voting_channel
+from bot.cogs.contest.utils import get_logs_channel, get_contest_role, get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_submission_channel, get_voting_channel
 from bot.core.error_embed import create_logs_embed
 
 
@@ -197,7 +197,7 @@ class ContestCommands(commands.Cog):
     async def contest_get_announcement_channel(self, ctx: commands.Context):
         await ctx.defer()
 
-        announcement_channel = await get_announcement_channel(self.bot, guild_id=ctx.guild.id)
+        announcement_channel = await get_contest_announcement_channel(self.bot, guild_id=ctx.guild.id)
         if announcement_channel:
             await ctx.send(f"Announcement channel is set to <#{announcement_channel.id}>")
         else:
@@ -228,7 +228,7 @@ class ContestCommands(commands.Cog):
     async def contest_get_ping_role(self, ctx: commands.Context):
         await ctx.defer()
 
-        ping_role = await get_ping_role(self.bot, guild_id=ctx.guild.id)
+        ping_role = await get_contest_ping_role(self.bot, guild_id=ctx.guild.id)
         if ping_role:
             await ctx.send(f"Contest ping role is set to <@&{ping_role.id}>")
         else:
@@ -259,7 +259,7 @@ class ContestCommands(commands.Cog):
     async def contest_get_archive_channel(self, ctx: commands.Context):
         await ctx.defer()
 
-        archive_channel = await get_archive_channel(self.bot, guild_id=ctx.guild.id)
+        archive_channel = await get_contest_archive_channel(self.bot, guild_id=ctx.guild.id)
         if archive_channel:
             await ctx.send(f"Archive channel is set to <#{archive_channel.id}>")
         else:
