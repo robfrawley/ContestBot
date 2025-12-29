@@ -18,17 +18,18 @@ class ContestCommands(commands.Cog):
         logs_channel = await get_logs_channel(self.bot, guild_id=ctx.guild.id)
         role_name = await get_contest_role(self.bot, guild_id=ctx.guild.id)
         if logs_channel:
-            if role:
+            if role_name:
                 logs_embed = create_logs_embed(
                     title="Applying contest role",
                     description=f"Applying role of \"{role_name if role_name else 'None'}\" to {len(ctx.guild.members)} members",
                     color=discord.Color.green() if role_name else discord.Color.red()
                 )
-            await logs_channel.send(
-                embed=logs_embed
-            )
+                await logs_channel.send(
+                    embed=logs_embed
+                )
 
-        if role_name is None:
+        if role_name is None and logs_channel:
+            print(f"Contest role not set for guild {ctx.guild.id}")
             await logs_channel.send("Please specify a role.")
             return
         else:
