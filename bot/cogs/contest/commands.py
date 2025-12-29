@@ -63,20 +63,20 @@ class ContestCommands(commands.Cog):
             if logs_channel:
                 await logs_channel.send(
                     embed=build_discord_embed(
-                        title="Configure Submission Channel",
-                        description=f"The contest bot submission channel is set to <#{channel.id}>!",
+                        title="Configure Submissions Channel",
+                        description=f"The contest bot submissions channel is set to <#{channel.id}>!",
                         color=logs_channel_color
                     )
                 )
 
             if channel is not logs_channel:
-                await ctx.send(f"Set contest bot submission channel: <#{channel.id}>")
+                await ctx.send(f"Set contest bot submissions channel: <#{channel.id}>")
 
         except Exception as e:
             if logs_channel:
                 await logs_channel.send(
                     embed=build_discord_embed(
-                        title="Error setting submission channel",
+                        title="Error setting submissions channel",
                         description=f"Error: {e}",
                         color=discord.Color.red()
                     )
@@ -91,9 +91,21 @@ class ContestCommands(commands.Cog):
 
         submission_channel = await get_submission_channel(self.bot, guild_id=ctx.guild.id)
         if submission_channel:
-            await ctx.send(f"Submission channel is set to <#{submission_channel.id}>")
+            await ctx.send(
+                embed=build_discord_embed(
+                    title="Submissions Channel",
+                    description=f"The contest bot submissions channel is set to <#{submission_channel.id}>!",
+                    color=discord.Color.green()
+                )
+            )
         else:
-            await ctx.send("Submission channel is not set.")
+            await ctx.send(
+                embed=build_discord_embed(
+                    title="Submissions Channel Not Set",
+                    description="The contest bot submissions channel is not set.",
+                    color=discord.Color.red()
+                )
+            )
 
 
     @commands.hybrid_command(name="contest_set_voting_channel", description="Select voting channel")
