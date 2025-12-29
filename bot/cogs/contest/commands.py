@@ -69,7 +69,7 @@ class ContestCommands(commands.Cog):
                     )
                 )
 
-            if channel not logs_channel:
+            if channel is not logs_channel:
                 await ctx.send(f"Set contest bot submission channel: <#{channel.id}>")
 
         except Exception as e:
