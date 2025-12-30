@@ -1,11 +1,14 @@
 import os
+import json
 import discord # type: ignore
+from typing import Optional
 from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler # type: ignore
 from discord import Message
 from discord.ext import commands # type: ignore
-from pydantic_settings import BaseSettings, SettingsConfigDict, BaseModel # type: ignore
-from pydantic_settings.sources import camel_case_aliases # type: ignore
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field, field_validator # type: ignore
+from pydantic_settings import BaseSettings, SettingsConfigDict # type: ignore
 from pathlib import Path
 from motor.motor_asyncio import AsyncIOMotorClient # type: ignore
 from bot import ENV_FILE_PATH
@@ -13,7 +16,6 @@ from bot import ENV_FILE_PATH
 exts = [
     "bot.cogs.contest"
 ]
-
 
 class Schedule(BaseModel):
     day: int
@@ -26,33 +28,59 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_PATH,
         env_file_encoding="utf-8",
-        env_aliases=camel_case_aliases(),
         extra="ignore",
+        alias_generator=lambda string: "".join(
+            word.capitalize() if i else word for i, word in enumerate(string.split("_"))
+        ),
+        populate_by_name=True,
     )
 
-    discordToken: str
-    mongoUri: str
-    mongo: AsyncIOMotorClient
-    scheduleShowSubmitChannel: Schedule
-    scheduleHideSubmitChannel: Schedule
-    scheduleMakeVotingForum: Schedule
-    scheduleShowVotingForum: Schedule
-    scheduleHideVotingForum: Schedule
-    scheduleAnncWinner: Schedule
-    scheduleEndsEvents: Schedule
+    discordToken: str = Field(alias="DISCORD_TOKEN")
+    mongoUri: str = Field(alias="MONGO_URI")
+    mongo: Optional[AsyncIOMotorClient] = None
+
+    scheduleShowSubmitChannel: Schedule = Field(alias="SCHEDULE_SHOW_SUBMIT_CHANNEL")
+    scheduleHideSubmitChannel: Schedule = Field(alias="SCHEDULE_HIDE_SUBMIT_CHANNEL")
+    scheduleMakeVotingForum: Schedule = Field(alias="SCHEDULE_SEND_VOTING_FORUM")
+    scheduleShowVotingForum: Schedule = Field(alias="SCHEDULE_SHOW_VOTING_FORUM")
+    scheduleHideVotingForum: Schedule = Field(alias="SCHEDULE_HIDE_VOTING_FORUM")
+    scheduleAnncWinner: Schedule = Field(alias="SCHEDULE_ANNC_WINNER")
+    scheduleEndsEvents: Schedule = Field(alias="SCHEDULE_ENDS_EVENTS")
+
     botTimezone: ZoneInfo = ZoneInfo("America/New_York")
-    botAuthorName: str = "Contest Bot"
-    botAuthorImgUrl: str = None
+    botAuthorName: str = Field(default="Contest Bot", alias="BOT_AUTHOR_NAME")
+    botAuthorImgUrl: str | None = Field(default=None, alias="BOT_AUTHOR_IMG_URL")
 
     @field_validator("mongo", mode="after")
     @classmethod
-    def build_mongo_client(cls, v, values):
-        return values["mongoUri"] if isinstance(values["mongoUri"], AsyncIOMotorClient) else AsyncIOMotorClient(values["mongoUri"])
+    def build_mongo_client(cls, v, info):
+        mongo_uri = info.data.get("mongoUri")
+        if isinstance(mongo_uri, AsyncIOMotorClient):
+            return mongo_uri
+        return AsyncIOMotorClient(mongo_uri)
 
-    @field_validator("timezone", mode="before")
+    @field_validator("botTimezone", mode="before")
     @classmethod
     def validate_timezone(cls, v):
-        return ZoneInfo(v) if isinstance(v, str) else throw ValueError(f"Invalid timezone value: {v}")
+        if isinstance(v, str):
+            return ZoneInfo(v)
+        return v
+
+    @field_validator(
+        "scheduleShowSubmitChannel",
+        "scheduleHideSubmitChannel",
+        "scheduleMakeVotingForum",
+        "scheduleShowVotingForum",
+        "scheduleHideVotingForum",
+        "scheduleAnncWinner",
+        "scheduleEndsEvents",
+        mode="before"
+    )
+    @classmethod
+    def parse_json_schedule(cls, v):
+        if isinstance(v, str):
+            return Schedule(**json.loads(v))
+        return v
 
 
 settings = Settings()
@@ -89,7 +117,9 @@ class Bot(commands.Bot):
         synced = await self.tree.sync()
 
         print(f"Synced {len(synced)} commands")
-        print(f"{self.user.name} is ready")
+
+        if self.user is not None:
+            print(f"{self.user.name} is ready")
 
         if not self.scheduler.running:
             self.scheduler.start()

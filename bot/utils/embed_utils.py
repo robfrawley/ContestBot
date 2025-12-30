@@ -1,6 +1,5 @@
 import discord
 
-
 def log_embed(
         title: str,
         description: str,

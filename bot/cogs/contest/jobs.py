@@ -23,62 +23,62 @@ class ContestJobs:
         async for config in self.collection.find({}):
             guild_id = config["_id"]
 
-            scheduler.add_job(
-                self.open_submission_channel, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleShowSubmitChannel.day,
-                hour=settings.scheduleShowSubmitChannel.hour,
-                minute=settings.scheduleShowSubmitChannel.minute,
-                second=settings.scheduleShowSubmitChannel.second,
-                timezone=settings.botTimezone,
-            )
-            scheduler.add_job(
-                self.close_submission_channel, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleHideSubmitChannel.day,
-                hour=settings.scheduleHideSubmitChannel.hour,
-                minute=settings.scheduleHideSubmitChannel.minute,
-                second=settings.scheduleHideSubmitChannel.second,
-                timezone=settings.botTimezone,
-            )
-            scheduler.add_job(
-                self.post_submission_to_forum, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleMakeVotingForum.day,
-                hour=settings.scheduleMakeVotingForum.hour,
-                minute=settings.scheduleMakeVotingForum.minute,
-                second=settings.scheduleMakeVotingForum.second,
-                timezone=settings.botTimezone,
-            )
-            scheduler.add_job(
-                self.open_voting_channel, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleShowVotingForum.day,
-                hour=settings.scheduleShowVotingForum.hour,
-                minute=settings.scheduleShowVotingForum.minute,
-                second=settings.scheduleShowVotingForum.second,
-                timezone=settings.botTimezone,
-            )
-            scheduler.add_job(
-                self.close_voting_channel, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleHideVotingForum.day,
-                hour=settings.scheduleHideVotingForum.hour,
-                minute=settings.scheduleHideVotingForum.minute,
-                second=settings.scheduleHideVotingForum.second,
-                timezone=settings.botTimezone,
-            )
-            scheduler.add_job(
-                self.announce_winner, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleAnncWinner.day,
-                hour=settings.scheduleAnncWinner.hour,
-                minute=settings.scheduleAnncWinner.minute,
-                second=settings.scheduleAnncWinner.second,
-                timezone=settings.botTimezone,
-            )
-            scheduler.add_job(
-                self.close_contest, "cron", kwargs={"guild_id": guild_id},
-                day=settings.scheduleEndsEvents.day,
-                hour=settings.scheduleEndsEvents.hour,
-                minute=settings.scheduleEndsEvents.minute,
-                second=settings.scheduleEndsEvents.second,
-                timezone=settings.botTimezone
-            )
+            #scheduler.add_job(
+            #    self.open_submission_channel, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleShowSubmitChannel.day,
+            #    hour=settings.scheduleShowSubmitChannel.hour,
+            #    minute=settings.scheduleShowSubmitChannel.minute,
+            #    second=settings.scheduleShowSubmitChannel.second,
+            #    timezone=settings.botTimezone,
+            #)
+            #scheduler.add_job(
+            #    self.close_submission_channel, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleHideSubmitChannel.day,
+            #    hour=settings.scheduleHideSubmitChannel.hour,
+            #    minute=settings.scheduleHideSubmitChannel.minute,
+            #    second=settings.scheduleHideSubmitChannel.second,
+            #    timezone=settings.botTimezone,
+            #)
+            #scheduler.add_job(
+            #    self.post_submission_to_forum, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleMakeVotingForum.day,
+            #    hour=settings.scheduleMakeVotingForum.hour,
+            #    minute=settings.scheduleMakeVotingForum.minute,
+            #    second=settings.scheduleMakeVotingForum.second,
+            #    timezone=settings.botTimezone,
+            #)
+            #scheduler.add_job(
+            #    self.open_voting_channel, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleShowVotingForum.day,
+            #    hour=settings.scheduleShowVotingForum.hour,
+            #    minute=settings.scheduleShowVotingForum.minute,
+            #    second=settings.scheduleShowVotingForum.second,
+            #    timezone=settings.botTimezone,
+            #)
+            #scheduler.add_job(
+            #    self.close_voting_channel, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleHideVotingForum.day,
+            #    hour=settings.scheduleHideVotingForum.hour,
+            #    minute=settings.scheduleHideVotingForum.minute,
+            #    second=settings.scheduleHideVotingForum.second,
+            #    timezone=settings.botTimezone,
+            #)
+            #scheduler.add_job(
+            #    self.announce_winner, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleAnncWinner.day,
+            #    hour=settings.scheduleAnncWinner.hour,
+            #    minute=settings.scheduleAnncWinner.minute,
+            #    second=settings.scheduleAnncWinner.second,
+            #    timezone=settings.botTimezone,
+            #)
+            #scheduler.add_job(
+            #    self.close_contest, "cron", kwargs={"guild_id": guild_id},
+            #    day=settings.scheduleEndsEvents.day,
+            #    hour=settings.scheduleEndsEvents.hour,
+            #    minute=settings.scheduleEndsEvents.minute,
+            #    second=settings.scheduleEndsEvents.second,
+            #    timezone=settings.botTimezone
+            #)
 
 
     async def open_submission_channel(self, guild_id: int = None):

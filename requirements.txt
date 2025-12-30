@@ -18,6 +18,5 @@ python-dateutil
 python-dotenv
 pydantic-settings
 
-# Files and Parsing
+# Files
 aiofiles
-json

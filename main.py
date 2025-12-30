@@ -1,6 +1,5 @@
 import discord #type: ignore
-from bot.config import settings
-from bot.config import Bot
+from bot.config import Bot, settings
 
 
 if __name__ == "__main__":
