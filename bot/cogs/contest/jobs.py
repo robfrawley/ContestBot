@@ -1,10 +1,10 @@
 import os
 from datetime import datetime
 from pathlib import Path
+from bot.config import settings
 
 import discord
 
-from bot import GMT_TIMEZONE
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
     get_logs_channel
@@ -23,13 +23,63 @@ class ContestJobs:
         async for config in self.collection.find({}):
             guild_id = config["_id"]
 
-            scheduler.add_job(self.open_submission_channel, "cron", day=2, hour=0, minute=0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.close_submission_channel, "cron", day=14, hour=23, minute=0, second = 0,  timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.post_submission_to_forum, "cron", day=14, hour=23, minute=30, second = 0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.open_voting_channel, "cron", day=16, hour=23, minute=59,second = 0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.close_voting_channel, "cron", day=23, hour=23, minute=59, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.announce_winner, "cron", day=24, hour=0, minute=0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.close_contest, "cron", day=24, hour=22, minute=0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(
+                self.open_submission_channel, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleShowSubmitChannel.day,
+                hour=settings.scheduleShowSubmitChannel.hour,
+                minute=settings.scheduleShowSubmitChannel.minute,
+                second=settings.scheduleShowSubmitChannel.second,
+                timezone=settings.botTimezone,
+            )
+            scheduler.add_job(
+                self.close_submission_channel, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleHideSubmitChannel.day,
+                hour=settings.scheduleHideSubmitChannel.hour,
+                minute=settings.scheduleHideSubmitChannel.minute,
+                second=settings.scheduleHideSubmitChannel.second,
+                timezone=settings.botTimezone,
+            )
+            scheduler.add_job(
+                self.post_submission_to_forum, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleMakeVotingForum.day,
+                hour=settings.scheduleMakeVotingForum.hour,
+                minute=settings.scheduleMakeVotingForum.minute,
+                second=settings.scheduleMakeVotingForum.second,
+                timezone=settings.botTimezone,
+            )
+            scheduler.add_job(
+                self.open_voting_channel, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleShowVotingForum.day,
+                hour=settings.scheduleShowVotingForum.hour,
+                minute=settings.scheduleShowVotingForum.minute,
+                second=settings.scheduleShowVotingForum.second,
+                timezone=settings.botTimezone,
+            )
+            scheduler.add_job(
+                self.close_voting_channel, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleHideVotingForum.day,
+                hour=settings.scheduleHideVotingForum.hour,
+                minute=settings.scheduleHideVotingForum.minute,
+                second=settings.scheduleHideVotingForum.second,
+                timezone=settings.botTimezone,
+            )
+            scheduler.add_job(
+                self.announce_winner, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleAnncWinner.day,
+                hour=settings.scheduleAnncWinner.hour,
+                minute=settings.scheduleAnncWinner.minute,
+                second=settings.scheduleAnncWinner.second,
+                timezone=settings.botTimezone,
+            )
+            scheduler.add_job(
+                self.close_contest, "cron", kwargs={"guild_id": guild_id},
+                day=settings.scheduleEndsEvents.day,
+                hour=settings.scheduleEndsEvents.hour,
+                minute=settings.scheduleEndsEvents.minute,
+                second=settings.scheduleEndsEvents.second,
+                timezone=settings.botTimezone
+            )
+
 
     async def open_submission_channel(self, guild_id: int = None):
         submission_channel = await get_submission_channel(self.bot, guild_id= guild_id)
@@ -59,8 +109,6 @@ class ContestJobs:
             print("Contest role not set.")
             return
 
-
-
         if submission_channel and isinstance(submission_channel, discord.TextChannel) and member:
             overwrites = discord.PermissionOverwrite()
             overwrites.send_messages = True
@@ -81,6 +129,7 @@ class ContestJobs:
                 f"{contest_ping_role.mention if contest_ping_role else ''} The submission channel is now open! Please submit your entries here: <#{submission_channel.id}>."
             )
         print("🔓 Opened submission channel at", datetime.utcnow())
+
 
     async def close_submission_channel(self, guild_id: int = None):
         logs_channel = await get_logs_channel(self.bot, guild_id=guild_id)
@@ -121,11 +170,12 @@ class ContestJobs:
         print(f"Contest ping role: {contest_ping_role}")
         if announcement_channel is not None:
             await announcement_channel.send(
-                f"{contest_ping_role.mention if contest_ping_role else ''}The submission channel is now closed. Please submit your entries again in the next Month."
+                f"{contest_ping_role.mention if contest_ping_role else ''} The submission channel is now closed."
             )
 
 
         print("🔒 Closed submission channel at", datetime.utcnow())
+
 
     async def post_submission_to_forum(self, guild_id: int = None,):
         guild = self.bot.get_guild(guild_id)
@@ -146,7 +196,7 @@ class ContestJobs:
                 )
             return print("Voting channel not set.")
 
-        current_month = datetime.now(GMT_TIMEZONE).strftime("%Y-%m")
+        current_month = datetime.now(settings.botTimezone).strftime("%Y-%m")
         submissions = self.submissions_collection.find({
             "month": current_month,
             "guild_id": guild_id  
@@ -205,6 +255,7 @@ class ContestJobs:
             )
         return None
 
+
     async def open_voting_channel(self, guild_id: int = None,):
         logs_channel = await get_logs_channel(self.bot, guild_id=guild_id)
         voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
@@ -253,6 +304,7 @@ class ContestJobs:
                 print("Bot does not have permission to set permissions in the voting channel.")
                 return
 
+
     async def close_voting_channel(self, guild_id: int = None,):
         logs_channel = await get_logs_channel(self.bot, guild_id=guild_id)
         voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
@@ -290,7 +342,7 @@ class ContestJobs:
                 contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
                 if announcement_channel is not None:
                     await announcement_channel.send(
-                        f"{contest_ping_role.mention if contest_ping_role else ''}The voting channel is now closed. Please vote for your art submission again in the next Month."
+                        f"{contest_ping_role.mention if contest_ping_role else ''} The voting channel is now closed."
                     )
             except discord.Forbidden:
                 if logs_channel:
@@ -323,7 +375,7 @@ class ContestJobs:
                 )
             return print("Voting channel not set.")
 
-        now = datetime.now(GMT_TIMEZONE)
+        now = datetime.now(settings.botTimezone)
         current_month = now.month
         current_year = now.year
 
@@ -416,6 +468,7 @@ class ContestJobs:
                 )
             return None
         return None
+
 
     async def close_contest(self, guild_id: int = None,):
         guild = self.bot.get_guild(guild_id)

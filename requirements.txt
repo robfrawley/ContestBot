@@ -14,8 +14,10 @@ apscheduler
 # Date and Time Handling
 python-dateutil
 
-# Dotenv for environment variables
+# Settings Handling
 python-dotenv
+pydantic-settings
 
-# Files
+# Files and Parsing
 aiofiles
+json

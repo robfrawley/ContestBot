@@ -4,10 +4,9 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
-from bot import GMT_TIMEZONE
 from bot.cogs.contest.jobs import ContestJobs
 from bot.cogs.contest.utils import get_submission_channel, get_logs_channel
-from bot.config import Bot
+from bot.config import Bot, settings
 from bot.core.error_embed import create_logs_embed
 from bot.utils.image_utils import resize_and_save_image
 
@@ -63,7 +62,7 @@ class ContestManager(commands.Cog):
             )
             return
 
-        current_month = datetime.now(GMT_TIMEZONE).strftime("%Y-%m")
+        current_month = datetime.now(settings.botTimezone).strftime("%Y-%m")
         submissions = self.bot.db.submissions
         image_bytes = await attachment.read()
 

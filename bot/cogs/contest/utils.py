@@ -3,9 +3,8 @@ import io
 import aiohttp
 import discord
 
+from bot.config import settings
 
-#     def get_guild(cog):
-#     return cog.bot.get_guild(GUILD_ID)
 
 async def get_submission_channel(bot, guild_id):
     config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
@@ -134,8 +133,8 @@ def build_discord_embed(title: str = "", description: str = "", color: discord.C
     )
 
     embed.set_author(
-        name="Invisigal",
-        icon_url="https://src.run/get/media/images/dispatch/visi-large-white-bg-with-border.png"
+        name=settings.botName,
+        icon_url=settings.botAvatarUrl
     )
 
     return embed
