@@ -133,8 +133,8 @@ def build_discord_embed(title: str = "", description: str = "", color: discord.C
     )
 
     embed.set_author(
-        name=settings.botName,
-        icon_url=settings.botAvatarUrl
+        name=settings.bot_name,
+        icon_url=settings.bot_avatar_url
     )
 
     return embed

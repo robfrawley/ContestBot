@@ -4,4 +4,4 @@ from bot.config import Bot, settings
 
 if __name__ == "__main__":
     bot = Bot(command_prefix="c!", intents=discord.Intents.all(), help_command=None)
-    bot.run(settings.discordToken)
+    bot.run(settings.discord_token)

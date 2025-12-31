@@ -62,7 +62,7 @@ class ContestManager(commands.Cog):
             )
             return
 
-        current_month = datetime.now(settings.botTimezone).strftime("%Y-%m")
+        current_month = datetime.now(settings.bot_timezone).strftime("%Y-%m")
         submissions = self.bot.db.submissions
         image_bytes = await attachment.read()
 

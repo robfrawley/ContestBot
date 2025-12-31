@@ -1,6 +1,9 @@
 import os
 import json
+import sys
+import datetime
 import discord # type: ignore
+from discord.app_commands import AppCommand
 from typing import Optional
 from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler # type: ignore
@@ -29,37 +32,36 @@ class Settings(BaseSettings):
         env_file=ENV_FILE_PATH,
         env_file_encoding="utf-8",
         extra="ignore",
-        alias_generator=lambda string: "".join(
-            word.capitalize() if i else word for i, word in enumerate(string.split("_"))
-        ),
         populate_by_name=True,
     )
 
-    discordToken: str = Field(alias="DISCORD_TOKEN")
-    mongoUri: str = Field(alias="MONGO_URI")
+    debug_mode: bool = Field(default=False, alias="DEBUG_MODE")
+
+    discord_token: str = Field(alias="DISCORD_TOKEN")
+    mongo_uri: str = Field(alias="MONGO_URI")
     mongo: Optional[AsyncIOMotorClient] = None
 
-    scheduleShowSubmitChannel: Schedule = Field(alias="SCHEDULE_SHOW_SUBMIT_CHANNEL")
-    scheduleHideSubmitChannel: Schedule = Field(alias="SCHEDULE_HIDE_SUBMIT_CHANNEL")
-    scheduleMakeVotingForum: Schedule = Field(alias="SCHEDULE_SEND_VOTING_FORUM")
-    scheduleShowVotingForum: Schedule = Field(alias="SCHEDULE_SHOW_VOTING_FORUM")
-    scheduleHideVotingForum: Schedule = Field(alias="SCHEDULE_HIDE_VOTING_FORUM")
-    scheduleAnncWinner: Schedule = Field(alias="SCHEDULE_ANNC_WINNER")
-    scheduleEndsEvents: Schedule = Field(alias="SCHEDULE_ENDS_EVENTS")
+    bot_timezone: ZoneInfo = Field(default=ZoneInfo("UTC"), alias="BOT_TIMEZONE")
+    bot_author_name: str = Field(default="Contest Bot", alias="BOT_AUTHOR_NAME")
+    bot_author_img_url: Optional[str] = Field(default=None, alias="BOT_AUTHOR_IMG_URL")
 
-    botTimezone: ZoneInfo = ZoneInfo("America/New_York")
-    botAuthorName: str = Field(default="Contest Bot", alias="BOT_AUTHOR_NAME")
-    botAuthorImgUrl: str | None = Field(default=None, alias="BOT_AUTHOR_IMG_URL")
+    schedule_show_submit_channel: Schedule = Field(alias="SCHEDULE_SHOW_SUBMIT_CHANNEL")
+    schedule_hide_submit_channel: Schedule = Field(alias="SCHEDULE_HIDE_SUBMIT_CHANNEL")
+    schedule_make_voting_forum: Schedule = Field(alias="SCHEDULE_SEND_VOTING_FORUM")
+    schedule_show_voting_forum: Schedule = Field(alias="SCHEDULE_SHOW_VOTING_FORUM")
+    schedule_hide_voting_forum: Schedule = Field(alias="SCHEDULE_HIDE_VOTING_FORUM")
+    schedule_annc_winner: Schedule = Field(alias="SCHEDULE_ANNC_WINNER")
+    schedule_ends_events: Schedule = Field(alias="SCHEDULE_ENDS_EVENTS")
 
     @field_validator("mongo", mode="after")
     @classmethod
     def build_mongo_client(cls, v, info):
-        mongo_uri = info.data.get("mongoUri")
+        mongo_uri = info.data.get("mongo_uri")
         if isinstance(mongo_uri, AsyncIOMotorClient):
             return mongo_uri
         return AsyncIOMotorClient(mongo_uri)
 
-    @field_validator("botTimezone", mode="before")
+    @field_validator("bot_timezone", mode="before")
     @classmethod
     def validate_timezone(cls, v):
         if isinstance(v, str):
@@ -67,13 +69,13 @@ class Settings(BaseSettings):
         return v
 
     @field_validator(
-        "scheduleShowSubmitChannel",
-        "scheduleHideSubmitChannel",
-        "scheduleMakeVotingForum",
-        "scheduleShowVotingForum",
-        "scheduleHideVotingForum",
-        "scheduleAnncWinner",
-        "scheduleEndsEvents",
+        "schedule_show_submit_channel",
+        "schedule_hide_submit_channel",
+        "schedule_make_voting_forum",
+        "schedule_show_voting_forum",
+        "schedule_hide_voting_forum",
+        "schedule_annc_winner",
+        "schedule_ends_events",
         mode="before"
     )
     @classmethod
@@ -83,19 +85,63 @@ class Settings(BaseSettings):
         return v
 
 
-settings = Settings()
+class ConsoleLogger:
+    def __init__(self, debug_enabled: bool = True, timezone: ZoneInfo = ZoneInfo("UTC")):
+        self.debug_enabled = debug_enabled
+        self.timezone = timezone
 
-print("Configuration loaded successfully.")
-print(f"Discord Token: {settings.discordToken}")
-print(f"MongoDB URI: {settings.mongoUri}")
-print(f"MongoDB Client: {settings.mongo}")
-print(f"Schedule Open Submit Channel: {settings.scheduleShowSubmitChannel}")
-print(f"Schedule Hide Submit Channel: {settings.scheduleHideSubmitChannel}")
-print(f"Schedule Make Voting Forum: {settings.scheduleMakeVotingForum}")
-print(f"Schedule Open Voting Forum: {settings.scheduleShowVotingForum}")
-print(f"Schedule Hide Voting Forum: {settings.scheduleHideVotingForum}")
-print(f"Schedule Announce Winner: {settings.scheduleAnncWinner}")
-print(f"Schedule Ends Events: {settings.scheduleEndsEvents}")
+
+    def _log(self, level: str, message: str, level_color: str = ""):
+        timestamp = datetime.datetime.now(tz=self.timezone).strftime("%Y-%m-%d %H:%M:%S")
+        dim_white = "\033[37;2m"
+        reset_code = "\033[0m"
+        padded_level = f"{level.ljust(8)}"
+        colored_level = f"{level_color}{padded_level}{reset_code}"
+        print(f"{dim_white}{timestamp}{reset_code} {colored_level} {message}", file=sys.stdout)
+
+
+    def info(self, message: str):
+        self._log("INFO", message, level_color="\033[34;1m")
+
+
+    def debug(self, message: str):
+        if self.debug_enabled:
+            self._log("DEBUG", message, level_color="\033[93m")
+
+
+    def warn(self, message: str):
+        self._log("WARN", message, level_color="\033[91m")
+
+
+    def log_settings(self, settings: BaseSettings):
+        self.info("Loaded configuration...")
+
+        fields = settings.model_fields.keys()
+        values = {field: getattr(settings, field) for field in fields}
+        maxlen = max(len(name) for name in fields)
+
+        for name, value in values.items():
+            padded_name = f"\"{name}\"".ljust(maxlen + 2)
+            self.debug(f"- {padded_name} = \"{value}\"")
+    
+    def log_commands(self, synced: AppCommand):
+        logger.info(f"Synced \"{len(synced)}\" commands...")
+
+        entries = []
+
+        for command in synced:
+            scope = "global" if command.guild_id is None else f"guild={command.guild_id}"
+            entries.append((f"- \"{command.name}\"", scope))
+
+        max_len = max(len(cmd) for cmd, _ in entries)
+
+        for cmd, scope in entries:
+            logger.debug(f"{cmd.ljust(max_len)} ({scope})")
+
+
+settings = Settings()
+logger = ConsoleLogger(debug_enabled=settings.debug_mode, timezone=settings.bot_timezone)
+logger.log_settings(settings)
 
 
 class Bot(commands.Bot):
@@ -106,22 +152,26 @@ class Bot(commands.Bot):
 
 
     async def on_ready(self):
+        logger.info("Loading extensions...")
+
         for ext in exts:
             try:
                 await self.load_extension(ext)
+                logger.debug(f"- \"{ext}\" (success)")
             except Exception as e:
-                print(f"Failed to load extension {ext}: {e}")
+                logger.warn(f"- \"{ext}\" (failure: {e})")
 
-        print(f"Loaded All Cog")
-
+        logger.info("Syncing commands...")
         synced = await self.tree.sync()
-
-        print(f"Synced {len(synced)} commands")
+        logger.log_commands(synced)
 
         if self.user is not None:
-            print(f"{self.user.name} is ready")
+            logger.info(f"User \"{self.user.name}\" with id \"{self.user.id}\" is ready...")
+        else:
+            logger.warn("Bot user is None on ready event!")
 
         if not self.scheduler.running:
+            logger.info("Starting scheduler...")
             self.scheduler.start()
 
 
@@ -140,8 +190,8 @@ class Bot(commands.Bot):
                 if func:
                     await func(message)
                 else:
-                    print(f"Cog {cog_name} has no function {func_name}")
+                    logger.warn(f"Cog {cog_name} has no function {func_name}")
             else:
-                print(f"Cog {cog_name} not found")
+                logger.warn(f"Cog {cog_name} not found")
 
         await self.process_commands(message)
