@@ -63,6 +63,10 @@ class ContestManager(commands.Cog):
             )
             return
 
+        if not attachment.content_type or not attachment.content_type.startswith("image/"):
+            logger.debug(f"Attachment content type is not an image: {attachment.content_type}")
+            return
+
         current_month = datetime.now(settings.bot_timezone).strftime("%Y-%m")
         submissions = self.bot.db.submissions
         image_bytes = await attachment.read()
