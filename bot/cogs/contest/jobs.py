@@ -129,7 +129,7 @@ class ContestJobs:
         logger.debug(f"Contest ping role: {contest_ping_role}")
         if announcement_channel is not None:
             await announcement_channel.send(
-                build_discord_embed_with_role_ping(
+                **build_discord_embed_with_role_ping(
                     title="Submissions Channel Opened",
                     description=(
                         f"The submission channel is now open! Submit your entries by posting them in "
@@ -186,7 +186,7 @@ class ContestJobs:
         logger.debug(f"Contest ping role: {contest_ping_role}")
         if announcement_channel is not None:
             await announcement_channel.send(
-                build_discord_embed_with_role_ping(
+                **build_discord_embed_with_role_ping(
                     title="Submissions Channel Closed",
                     description=(
                         f"The submission channel is now closed! Submissions are no longer being accepted. Check back soon for voting details."
@@ -321,7 +321,7 @@ class ContestJobs:
             try:
                 await voting_channel.set_permissions(target=member, overwrite=overwrites)
                 await announcement_channel.send(
-                    build_discord_embed_with_role_ping(
+                    **build_discord_embed_with_role_ping(
                         title="Voting Channel Opened",
                         description=(
                             f"The voting channel is now open! Please vote for your favorite submission in <#{voting_channel.id}> by reacting to the submissions with the trophy emoji."
@@ -383,7 +383,7 @@ class ContestJobs:
                 contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
                 if announcement_channel is not None:
                     await announcement_channel.send(
-                        build_discord_embed_with_role_ping(
+                        **build_discord_embed_with_role_ping(
                             title="Voting Channel Closed",
                             description=(
                                 f"The voting channel is now closed. Thank you for participating! A winner will be announced soon."
@@ -493,7 +493,7 @@ class ContestJobs:
                 continue
 
             await announcement_channel.send(
-                build_discord_embed_with_thumbnail_and_role_ping(
+                **build_discord_embed_with_thumbnail_and_role_ping(
                     title=f"Winner: {user.display_name}",
                     description=(
                         f"{contest_ping_role} {user.mention} has won the Art Contest with {votes} votes! Congratulations!"
