@@ -17,7 +17,7 @@ from motor.motor_asyncio import AsyncIOMotorClient # type: ignore
 from bot import ENV_FILE_PATH
 
 exts = [
-    "bot.cogs.contest"
+    "bot.cogs.contest",
 ]
 
 class Schedule(BaseModel):
