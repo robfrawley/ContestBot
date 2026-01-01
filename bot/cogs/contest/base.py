@@ -9,6 +9,7 @@ from bot.cogs.contest.utils import get_submission_channel, get_logs_channel
 from bot.config import Bot, settings
 from bot.core.error_embed import create_logs_embed
 from bot.utils.image_utils import resize_and_save_image
+from bot.config import logger
 
 
 class ContestManager(commands.Cog):
@@ -57,7 +58,7 @@ class ContestManager(commands.Cog):
         if not attachment:
             await log_to_logs_channel(
                 title="No Attachment Found",
-                description=f"{message.author.mention} submitted a message without an image attachment.",
+                description=f"{message.author.mention} submitted a message without an image attachment. Not taking any action.",
                 color=discord.Color.orange()
             )
             return
@@ -73,7 +74,7 @@ class ContestManager(commands.Cog):
 
         try:
             await resize_and_save_image(image_bytes, output_path)
-            print(f"Saved image for {user_id} at {output_path}")
+            logger.info(f"Resized and saved image for user {user_id} in guild {guild_id} to path {output_path} (mongodb path: {db_path}).")
         except Exception as e:
             await log_to_logs_channel(
                 title="Image Processing Failed",

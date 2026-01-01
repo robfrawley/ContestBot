@@ -3,6 +3,7 @@ from discord.ext import commands
 
 from bot.cogs.contest.utils import get_logs_channel, get_contest_role, get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_submission_channel, get_voting_channel, build_discord_embed
 from bot.core.error_embed import create_logs_embed
+from bot.config import logger
 
 
 class ContestCommands(commands.Cog):
@@ -19,17 +20,17 @@ class ContestCommands(commands.Cog):
         role_name = role if role else await get_contest_role(self.bot, guild_id=ctx.guild.id)
 
         if role_name is None:
-            print(f"Contest role not set for guild {ctx.guild.id}")
+            logger.warn(f"Contest role not set for guild {ctx.guild.id}")
             await ctx.send("Contest role is not set. Please set it using the contest_set_role command.")
             return
 
         for member in ctx.guild.members:
             if not member.bot:
                 try:
-                    print(f"Adding {role_name} role to {member.name}")
+                    logger.debug(f"Adding {role_name} role to {member.name}")
                     await member.add_roles(role_name, reason=f"Applying contest role to all member: {member.name}")
                 except Exception as e:
-                    print(f"Failed to add role {role_name} to {member.name}: {e}")
+                    logger.warn(f"Failed to add role {role_name} to {member.name}: {e}")
 
         if logs_channel:
             logs_embed = create_logs_embed(
@@ -159,6 +160,7 @@ class ContestCommands(commands.Cog):
         announcement_channel = ctx.guild.get_channel(server_config.get("contest_announcement_channel"))
         if announcement_channel:
             if role not in announcement_channel.overwrites:
+                logger.debug(f"Setting permissions for contest role in announcement channel {announcement_channel.id} for role {role.id}")
                 overwrites = {
                     bot_member: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True,
                                                             manage_threads=True, read_message_history=True),
@@ -169,7 +171,7 @@ class ContestCommands(commands.Cog):
                 }
                 await announcement_channel.edit(overwrites=overwrites)
             else:
-                print("role already in announcement channel")
+                logger.debug("Contest role already has permissions in announcement channel. Not updating.")
 
         try:
             await self.collection.update_one(
@@ -342,8 +344,9 @@ class ContestCommands(commands.Cog):
                 contest_category = await guild.create_category("Contest")
                 await contest_category.set_permissions(bot_member, overwrite=default_overwrites[bot_member])
                 await contest_category.set_permissions(guild.default_role, overwrite=default_overwrites[guild.default_role])
+                logger.debug(f"Created contest category: {contest_category.id}")
             except discord.Forbidden:
-                print(f"Bot does not have permission to create category{discord.Forbidden}")
+                logger.warn(f"Bot does not have permission to create category: {discord.Forbidden}")
                 return
         try:
             await contest_category.set_permissions(
@@ -356,11 +359,12 @@ class ContestCommands(commands.Cog):
                     read_message_history=True
                 )
             )
+            logger.debug(f"Updated category permissions for bot in contest category {contest_category.id}")
         except Exception as e:
-            print(f"Could not update category permissions for bot: {e}")
+            logger.warn(f"Could not update category permissions for bot: {e}")
 
         contest_role = guild.get_role(server_config.get("contest_role")) if server_config else None
-        print(f"Contest role: {contest_role}")
+        logger.debug(f"Contest role: {contest_role}")
 
         view_only_overwrite = {
             guild.default_role: discord.PermissionOverwrite(
@@ -370,7 +374,7 @@ class ContestCommands(commands.Cog):
             )
         }
 
-        print(f"View only overwrite: {view_only_overwrite}")
+        logger.debug(f"View only overwrite: {view_only_overwrite}")
 
         async def get_or_create_role(name):
             return discord.utils.get(guild.roles, name=name) or await guild.create_role(name=name)
@@ -388,7 +392,7 @@ class ContestCommands(commands.Cog):
             if extra_overwrite:
                 for role, perms in extra_overwrite.items():
                     if isinstance(role, discord.Role) and role.position >= guild.me.top_role.position:
-                        print(f"⚠️ Skipping overwrite for {role.name} due to role hierarchy (bot role too low).")
+                        logger.warn(f"Skipping overwrite for {role.name} due to role hierarchy (bot role too low).")
                         continue
                     overwrites[role] = perms
 
@@ -422,7 +426,7 @@ class ContestCommands(commands.Cog):
                 return None
 
             except discord.Forbidden:
-                print(
+                logger.warn(
                     f"Bot does not have permission to create {cls.__name__}: Missing permissions or role hierarchy issue.")
                 return None
 
@@ -448,6 +452,8 @@ class ContestCommands(commands.Cog):
                 }},
                 upsert=True
             )
+            logger.debug("Updated database with new contest channels.")
             await ctx.send("Contest channels created successfully.")
         except Exception as e:
+            logger.warn(f"Error updating database with new contest channels: {e}")
             await ctx.send(f"Error: {e}")

@@ -112,6 +112,10 @@ class ConsoleLogger:
     def warn(self, message: str):
         self._log("WARN", message, level_color="\033[91m")
 
+    def warning(self, message: str):
+        self.warn('UPDATE CODE CALL FROM WARNING TO WARN!')
+        self.warn(message)
+
 
     def log_settings(self, settings: BaseSettings):
         self.info("Loaded configuration...")

@@ -7,7 +7,7 @@ import discord
 
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
-    get_logs_channel
+    get_logs_channel, build_discord_embed_with_role_ping, build_discord_embed_with_thumbnail_and_role_ping
 from bot.core.error_embed import create_logs_embed
 
 
@@ -97,7 +97,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Submission channel not set.")
+            logger.warn("Submission channel not set.")
             return
 
         if member is None:
@@ -109,7 +109,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Contest role not set.")
+            logger.warn("Contest role not set.")
             return
 
         if submission_channel and isinstance(submission_channel, discord.TextChannel) and member:
@@ -121,17 +121,27 @@ class ContestJobs:
             try:
                 await submission_channel.set_permissions(member, overwrite=overwrites)
             except discord.Forbidden:
-                print("Bot does not have permission to set permissions in the submission channel.")
+                logger.warn("Bot does not have permission to set permissions in the submission channel.")
                 return
 
         announcement_channel = await  get_contest_announcement_channel(self.bot, guild_id= guild_id)
         contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
-        print(f"Contest ping role: {contest_ping_role}")
+        logger.debug(f"Contest ping role: {contest_ping_role}")
         if announcement_channel is not None:
             await announcement_channel.send(
-                f"{contest_ping_role.mention if contest_ping_role else ''} The submission channel is now open! Please submit your entries here: <#{submission_channel.id}>."
+                build_discord_embed_with_role_ping(
+                    title="Submissions Channel Opened",
+                    description=(
+                        f"The submission channel is now open! Submit your entries by posting them in "
+                        f"<#{submission_channel.id}> (you will only see your own entries). "
+                        f"If you want to change your submission, just repost it and your previous entry "
+                        f"will be overwritten. Good luck to all participants!"
+                    ),
+                    roles=contest_ping_role,
+                    color=discord.Color.green()
+                )
             )
-        print("🔓 Opened submission channel at", datetime.utcnow())
+        logger.info("Opened submission channel at", datetime.utcnow())
 
 
     async def close_submission_channel(self, guild_id: int = None):
@@ -150,7 +160,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Submission channel not set.")
+            logger.warn("Submission channel not set.")
             return
 
         if member is None:
@@ -162,7 +172,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Contest role not set.")
+            logger.warn("Contest role not set.")
             return
 
         if submission_channel and isinstance(submission_channel, discord.TextChannel) and member:
@@ -173,14 +183,20 @@ class ContestJobs:
 
         announcement_channel = await  get_contest_announcement_channel(self.bot, guild_id=guild_id)
         contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
-        print(f"Contest ping role: {contest_ping_role}")
+        logger.debug(f"Contest ping role: {contest_ping_role}")
         if announcement_channel is not None:
             await announcement_channel.send(
-                f"{contest_ping_role.mention if contest_ping_role else ''} The submission channel is now closed."
+                build_discord_embed_with_role_ping(
+                    title="Submissions Channel Closed",
+                    description=(
+                        f"The submission channel is now closed! Submissions are no longer being accepted. Check back soon for voting details."
+                    ),
+                    roles=contest_ping_role,
+                    color=discord.Color.red()
+                )
             )
 
-
-        print("🔒 Closed submission channel at", datetime.utcnow())
+        logger.info(f"Closed submission channel at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}")
 
 
     async def post_submission_to_forum(self, guild_id: int = None,):
@@ -190,7 +206,7 @@ class ContestJobs:
         logger.info(f"Post submission to forum for guild \"{guild_id}\"")
 
         if guild is None:
-            print("Guild not found.")
+            logger.warn("Guild not found.")
             return None
 
         voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
@@ -203,7 +219,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            return print("Voting channel not set.")
+            logger.warn("Voting channel not set.")
 
         current_month = datetime.now(settings.bot_timezone).strftime("%Y-%m")
         submissions = self.submissions_collection.find({
@@ -221,7 +237,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Contest role not set.")
+            logger.warn("Contest role not set.")
             return None
 
         async for entry in submissions:
@@ -232,7 +248,7 @@ class ContestJobs:
             file_path = os.path.normpath(entry["file_path"])
 
             if not os.path.exists(file_path):
-                print(f"File not found at {file_path}")
+                logger.warn(f"File not found at {file_path}")
                 continue
 
             file = discord.File(file_path, filename="submission.webp")
@@ -256,7 +272,7 @@ class ContestJobs:
             try:
                 await thread.message.add_reaction("🏆")
             except Exception as e:
-                print(f"Error reacting to submission: {e}")
+                logger.warn(f"Error reacting to submission: {e}")
 
             await self.submissions_collection.update_one(
                 {"_id": entry["_id"]},
@@ -269,6 +285,7 @@ class ContestJobs:
         logs_channel = await get_logs_channel(self.bot, guild_id=guild_id)
         voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
         announcement_channel = await get_contest_announcement_channel(self.bot, guild_id= guild_id)
+        contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
 
         logger.info(f"Opening voting channel \"{voting_channel}\" for guild \"{guild_id}\"")
 
@@ -281,7 +298,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Voting channel not set.")
+            logger.warn("Voting channel not set.")
             return
         member = await get_contest_role(self.bot, guild_id= guild_id)
         if member is None:
@@ -293,7 +310,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Contest role not set.")
+            logger.warn("Contest role not set.")
             return
 
         if voting_channel and isinstance(voting_channel, discord.ForumChannel) and member:
@@ -303,7 +320,16 @@ class ContestJobs:
             overwrites.read_message_history = True
             try:
                 await voting_channel.set_permissions(target=member, overwrite=overwrites)
-                await announcement_channel.send(f"{member.mention}The voting channel is now open! Please vote for your art submission here: <#{voting_channel.id}>.")
+                await announcement_channel.send(
+                    build_discord_embed_with_role_ping(
+                        title="Voting Channel Opened",
+                        description=(
+                            f"The voting channel is now open! Please vote for your favorite submission in <#{voting_channel.id}> by reacting to the submissions with the trophy emoji."
+                        ),
+                        roles=contest_ping_role,
+                        color=discord.Color.green()
+                    )
+                )
             except discord.Forbidden:
                 if logs_channel:
                     await logs_channel.send(
@@ -313,7 +339,7 @@ class ContestJobs:
                             color=discord.Color.red()
                         )
                     )
-                print("Bot does not have permission to set permissions in the voting channel.")
+                logger.warn("Bot does not have permission to set permissions in the voting channel.")
                 return
 
 
@@ -332,7 +358,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Voting channel not set.")
+            logger.warn("Voting channel not set.")
             return
         member = await get_contest_role(self.bot, guild_id= guild_id)
         if member is None:
@@ -344,7 +370,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Contest role not set.")
+            logger.warn("Contest role not set.")
             return
 
         if voting_channel and isinstance(voting_channel, discord.ForumChannel) and member:
@@ -357,7 +383,14 @@ class ContestJobs:
                 contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
                 if announcement_channel is not None:
                     await announcement_channel.send(
-                        f"{contest_ping_role.mention if contest_ping_role else ''} The voting channel is now closed."
+                        build_discord_embed_with_role_ping(
+                            title="Voting Channel Closed",
+                            description=(
+                                f"The voting channel is now closed. Thank you for participating! A winner will be announced soon."
+                            ),
+                            roles=contest_ping_role,
+                            color=discord.Color.green()
+                        )
                     )
             except discord.Forbidden:
                 if logs_channel:
@@ -368,7 +401,7 @@ class ContestJobs:
                             color=discord.Color.red()
                         )
                     )
-                print("Bot does not have permission to set permissions in the voting channel.")
+                logger.warn("Bot does not have permission to set permissions in the voting channel.")
 
 
     async def announce_winner(self, guild_id: int = None,):
@@ -378,7 +411,7 @@ class ContestJobs:
         logger.info(f"Posting winner for guild \"{guild_id}\"")
 
         if guild is None:
-            print("Guild not found.")
+            logger.warn("Guild not found.")
             return None
 
         voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
@@ -391,7 +424,8 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            return print("Voting channel not set.")
+            logger.warn("Voting channel not set.")
+            return None
 
         now = datetime.now(settings.bot_timezone)
         current_month = now.month
@@ -420,7 +454,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("No winner found.")
+            logger.warn("No winner found.")
             return None
 
         announcement_channel = await get_contest_announcement_channel(self.bot, guild_id= guild_id)
@@ -433,11 +467,11 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Announcement channel not set.")
+            logger.warn("Announcement channel not set.")
             return None
 
         contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
-        print(f"Contest ping role: {contest_ping_role}")
+        logger.debug(f"Contest ping role: {contest_ping_role}")
         if contest_ping_role is None:
             if logs_channel:
                 await logs_channel.send(
@@ -447,7 +481,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Contest ping role not set.")
+            logger.warn("Contest ping role not set.")
 
         for thread_id, image_url, votes in winners:
 
@@ -458,21 +492,16 @@ class ContestJobs:
             if not user:
                 continue
 
-            embed = discord.Embed(
-                title="🎉 Art Contest Winner 🎉",
-                description=f"Congratulations {user}! You have won the Art Contest!",
-                color=0x00FF00
-            )
-            embed.set_image(url=image_url)
-            embed.set_thumbnail(url=user.avatar.url)
-            embed.set_footer(text=f"Total votes: {votes}")
-
-            content = (
-                f"The winner of the Art Contest is:\n{user.mention} {contest_ping_role.mention if contest_ping_role else ''}"
-            )
             await announcement_channel.send(
-                embed=embed,
-                content=content
+                build_discord_embed_with_thumbnail_and_role_ping(
+                    title=f"Winner: {user.display_name}",
+                    description=(
+                        f"{contest_ping_role} {user.mention} has won the Art Contest with {votes} votes! Congratulations!"
+                    ),
+                    roles=[contest_ping_role, user.mention],
+                    thumbnail_url=user.avatar.url,
+                    color=discord.Color.green()
+                )
             )
 
             if logs_channel:
@@ -505,7 +534,7 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Voting channel not set.")
+            logger.warn("Voting channel not set.")
             return
         if art_archive_channel is None:
             if logs_channel:
@@ -516,10 +545,10 @@ class ContestJobs:
                         color=discord.Color.red()
                     )
                 )
-            print("Art archive channel not set.")
+            logger.warn("Art archive channel not set.")
             return
         threads = voting_channel.threads
-        print(f"Archiving {len(threads)} threads...")
+        logger.info(f"Archiving {len(threads)} threads...")
         for thread in threads:
             try:
                 if art_archive_channel is None:
@@ -546,13 +575,14 @@ class ContestJobs:
                             for file in guild_folder.iterdir():
                                 try:
                                     file.unlink()
-                                    print(f"Deleted {file}")
+                                    logger.debug(f"Deleted {file}")
                                 except Exception as e:
-                                    print(f"Error deleting {file}: {e}")
+                                    logger.warn(f"Error deleting {file}: {e}")
                         else:
-                            print(f"No guild folder found for {guild_id}")
+                            logger.warn(f"No guild folder found for {guild_id}")
 
                 await thread.delete()
+                logger.info(f"Deleted thread {thread.name}")
             except Exception as e:
                 if logs_channel:
                     await logs_channel.send(
@@ -562,6 +592,6 @@ class ContestJobs:
                             color=discord.Color.red()
                         )
                     )
-                print(f"Error archiving thread {thread.name}: {e}")
+                logger.warn(f"Error archiving thread {thread.name}: {e}")
 
 
