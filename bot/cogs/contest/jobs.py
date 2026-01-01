@@ -7,7 +7,8 @@ import discord
 
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
-    get_logs_channel, build_discord_embed_with_role_ping, build_discord_embed_with_thumbnail_and_role_ping
+    get_logs_channel, build_discord_embed_with_role_ping, build_discord_embed_with_thumbnail_and_role_ping, \
+    find_first_image_post_for_forum_thread
 from bot.core.error_embed import create_logs_embed
 
 
@@ -105,7 +106,7 @@ class ContestJobs:
                 await logs_channel.send(
                     embed = create_logs_embed(
                         title="Contest Role Not Found",
-                        description=f"Contest role not found When opening the submission channel. Make sure to set the contest role using the `contest_role` command.",
+                        description=f"Contest role not found when opening the submission channel. Make sure to set the contest role using the `contest_role` command.",
                         color=discord.Color.red()
                     )
                 )
@@ -132,15 +133,32 @@ class ContestJobs:
                 **build_discord_embed_with_role_ping(
                     title="Submissions Channel Opened",
                     description=(
-                        f"The submission channel is now open! Submit your entries by posting them in "
-                        f"<#{submission_channel.id}> (you will only see your own entries). "
-                        f"If you want to change your submission, just repost it and your previous entry "
-                        f"will be overwritten. Good luck to all participants!"
+                        f"The contest submission channel is now open! Submit your entries by posting a single image in <#{submission_channel.id}>."
+                        f"\n\n"
+                        f"If you want to change your submission, submit another message with a new image in that channel; "
+                        f"this will overwrite your previous entry."
+                        f"\n\n"
+                        f"**Good luck to all participants!**"
                     ),
                     roles=contest_ping_role,
                     color=discord.Color.green()
                 )
             )
+
+        if submission_channel is not None:
+            await submission_channel.send(
+                **build_discord_embed_with_role_ping(
+                    title="Submit Contest Entries Here",
+                    description=(
+                        f"Submit your contest entries by posting them in this channel! Only single-image posts are allowed."
+                        f"\n\n"
+                        f"**Good luck to all participants!**"
+                    ),
+                    roles=contest_ping_role,
+                    color=discord.Color.green()
+                )
+            )
+
         logger.info(f"Opened submission channel at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
 
@@ -324,7 +342,13 @@ class ContestJobs:
                     **build_discord_embed_with_role_ping(
                         title="Voting Channel Opened",
                         description=(
-                            f"The voting channel is now open! Please vote for your favorite submission in <#{voting_channel.id}> by reacting to the submissions with the trophy emoji."
+                            f"The voting channel is now open! Take a moment to browser through the contest entries in <#{voting_channel.id}> "
+                            f"and upvote your favorite submissions by reacting to the forum posts with the trophy emoji."
+                            f"\n\n"
+                            f"Share your thoughts and talk with other members about specific entries in their dedicated forum post threads. "
+                            f"And don't forget to vote on your own submission, too!"
+                            f"\n\n"
+                            f"**Good luck to all participants!**"
                         ),
                         roles=contest_ping_role,
                         color=discord.Color.green()
@@ -437,13 +461,32 @@ class ContestJobs:
         for thread in voting_channel.threads:
             if thread.created_at.month != current_month or thread.created_at.year != current_year:
                 continue
-            async for msg in thread.history(limit=1):
-                vote_count = sum(r.count for r in msg.reactions)
-                if vote_count > 1 and vote_count > top_votes:
-                    top_votes = vote_count
-                    winners = [(msg.id, msg.attachments[0].url, top_votes)]
-                elif vote_count == top_votes:
-                    winners.append((msg.id, msg.attachments[0].url, top_votes))
+
+            image_message = await find_first_image_post_for_forum_thread(thread)
+
+            if not image_message:
+                continue
+
+            if not image_message.attachments:
+                continue
+
+            vote_count = sum(r.count for r in image_message.reactions)
+            attachment = next(
+                a for a in image_message.attachments
+                if a.content_type and a.content_type.startswith("image/")
+            )
+
+            if vote_count > 1 and vote_count > top_votes:
+                top_votes = vote_count
+                winners = [(thread.id, attachment.url, top_votes)]
+                logger.debug(f"Chose winning thread {thread.id} with {top_votes} votes...")
+            elif vote_count == top_votes:
+                winners.append((thread.id, attachment.url, top_votes))
+                logger.debug(f"Added winning thread {thread.id} with {top_votes} votes (total winners: {len(winners)})")
+            else:
+                logger.debug(f"Skipped lower thread {thread.id} with {vote_count} votes (top votes: {top_votes})")
+
+        logger.debug(f"Selected {len(winners)} winners: {winners}")
 
         if not winners:
             if logs_channel:
@@ -491,6 +534,9 @@ class ContestJobs:
             user = guild.get_member(winner["user_id"])
             if not user:
                 continue
+
+            logger.info(f"Announcing winner: {user.display_name} with {votes} votes.")
+            continue
 
             await announcement_channel.send(
                 **build_discord_embed_with_thumbnail_and_role_ping(

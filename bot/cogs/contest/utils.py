@@ -3,6 +3,8 @@ import io
 import aiohttp
 import discord
 
+from discord import Message
+
 from typing import Iterable
 from typing import TypedDict
 
@@ -129,6 +131,30 @@ async def get_discord_file_from_url(url: str, filename: str = None) -> discord.F
             return discord.File(data, filename=filename)
 
 
+IMAGE_TYPES = (
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+)
+
+async def find_first_image_post_for_forum_thread(thread) -> Message | None:
+    # Starter message first (cheap and common)
+    starter = thread.starter_message
+    if starter:
+        for a in starter.attachments:
+            if a.content_type in IMAGE_TYPES:
+                return starter
+
+    # Fallback: scan from oldest → newest
+    async for msg in thread.history(oldest_first=True):
+        for a in msg.attachments:
+            if a.content_type in IMAGE_TYPES:
+                return msg
+
+    return None
+
+
 class EmbedWithRolePingDict(TypedDict):
     embed: discord.Embed
     content: str
@@ -161,6 +187,33 @@ def build_discord_embed_with_thumbnail_and_role_ping(
 
     return {
         "embed": build_discord_embed_with_thumbnail(title, description, thumbnail_url, color),
+        "content": " ".join(mentions) if mentions else "",
+    }
+
+
+def build_discord_embed_with_image_and_role_ping(
+    title: str = "",
+    description: str = "",
+    image_url: str = "",
+    roles: RolesArg = None,
+    color: discord.Color = discord.Color.blue()
+) -> EmbedWithRolePingDict:
+    if roles is None:
+        role_list: list[RoleLike] = []
+    elif isinstance(roles, (discord.Role, str)):
+        role_list: list[RoleLike] = [roles]
+    elif isinstance(roles, Iterable):
+        role_list: list[RoleLike] = list(roles)
+    else:
+        raise TypeError(f"Invalid roles argument: {roles!r}")
+
+    mentions: list[str] = [
+        r.mention if isinstance(r, discord.Role) else r
+        for r in role_list
+    ]
+
+    return {
+        "embed": build_discord_embed_with_image(title, description, image_url, color),
         "content": " ".join(mentions) if mentions else "",
     }
 

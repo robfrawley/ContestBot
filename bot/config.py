@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     schedule_annc_winner: Schedule = Field(alias="SCHEDULE_ANNC_WINNER")
     schedule_ends_events: Schedule = Field(alias="SCHEDULE_ENDS_EVENTS")
 
+    image_max_dimension: int = Field(default=3840, alias="IMAGE_MAX_DIMENSION")
+
     @field_validator("mongo", mode="after")
     @classmethod
     def build_mongo_client(cls, v, info):
