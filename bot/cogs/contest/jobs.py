@@ -141,7 +141,7 @@ class ContestJobs:
                     color=discord.Color.green()
                 )
             )
-        logger.info("Opened submission channel at", datetime.utcnow())
+        logger.info(f"Opened submission channel at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
 
     async def close_submission_channel(self, guild_id: int = None):
@@ -196,7 +196,7 @@ class ContestJobs:
                 )
             )
 
-        logger.info(f"Closed submission channel at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}")
+        logger.info(f"Closed submission channel at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
 
     async def post_submission_to_forum(self, guild_id: int = None,):

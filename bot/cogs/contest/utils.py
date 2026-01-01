@@ -204,7 +204,7 @@ def build_discord_embed(
     )
 
     embed.set_author(
-        name=settings.bot_name,
+        name=settings.bot_author_name,
         icon_url=settings.bot_avatar_url
     )
 
