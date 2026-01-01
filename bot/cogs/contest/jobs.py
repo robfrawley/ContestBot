@@ -496,7 +496,7 @@ class ContestJobs:
                 **build_discord_embed_with_thumbnail_and_role_ping(
                     title=f"Winner: {user.display_name}",
                     description=(
-                        f"{contest_ping_role} {user.mention} has won the Art Contest with {votes} votes! Congratulations!"
+                        f"{user.mention} has won the art contest with {votes} votes! Congratulations!"
                     ),
                     roles=[contest_ping_role, user.mention],
                     thumbnail_url=user.avatar.url,
