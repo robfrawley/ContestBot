@@ -6,8 +6,8 @@ from bot.core.error_embed import create_logs_embed
 from bot.config import logger
 
 
-ALLOWED_UNICODE = {"🏆", ":trophy:"}
-ALLOWED_CUSTOM_IDS = {}
+ALLOWED_REACTIONS_UNICODE = {"🏆", ":trophy:"}
+ALLOWED_REACTIONS_CUSTOM_IDS = {}
 
 
 class ContestReactionsWatcher(commands.Cog):
@@ -57,8 +57,8 @@ class ContestReactionsWatcher(commands.Cog):
         emoji = payload.emoji
 
         allowed = (
-            (emoji.is_unicode_emoji() and emoji.name in ALLOWED_UNICODE) or
-            (emoji.id in ALLOWED_CUSTOM_IDS)
+            (emoji.is_unicode_emoji() and emoji.name in ALLOWED_REACTIONS_UNICODE) or
+            (emoji.id in ALLOWED_REACTIONS_CUSTOM_IDS)
         )
 
         # Fetch user

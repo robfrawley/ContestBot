@@ -4,11 +4,13 @@ from pathlib import Path
 from bot.config import settings, logger
 
 import discord
+from dataclasses import dataclass, field
+from typing import List, Tuple
 
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
     get_logs_channel, build_discord_embed_with_role_ping, build_discord_embed_with_thumbnail_and_role_ping, \
-    find_first_image_post_for_forum_thread
+    find_first_image_post_for_forum_thread, roll_with_rerolls, build_discord_embed_with_thumbnail_and_image_and_role_ping, Winner
 from bot.core.error_embed import create_logs_embed
 
 
@@ -451,55 +453,6 @@ class ContestJobs:
             logger.warn("Voting channel not set.")
             return None
 
-        now = datetime.now(settings.bot_timezone)
-        current_month = now.month
-        current_year = now.year
-
-        top_votes = 0
-        winners = []
-
-        for thread in voting_channel.threads:
-            if thread.created_at.month != current_month or thread.created_at.year != current_year:
-                continue
-
-            image_message = await find_first_image_post_for_forum_thread(thread)
-
-            if not image_message:
-                continue
-
-            if not image_message.attachments:
-                continue
-
-            vote_count = sum(r.count for r in image_message.reactions)
-            attachment = next(
-                a for a in image_message.attachments
-                if a.content_type and a.content_type.startswith("image/")
-            )
-
-            if vote_count > 1 and vote_count > top_votes:
-                top_votes = vote_count
-                winners = [(thread.id, attachment.url, top_votes)]
-                logger.debug(f"Chose winning thread {thread.id} with {top_votes} votes...")
-            elif vote_count == top_votes:
-                winners.append((thread.id, attachment.url, top_votes))
-                logger.debug(f"Added winning thread {thread.id} with {top_votes} votes (total winners: {len(winners)})")
-            else:
-                logger.debug(f"Skipped lower thread {thread.id} with {vote_count} votes (top votes: {top_votes})")
-
-        logger.debug(f"Selected {len(winners)} winners: {winners}")
-
-        if not winners:
-            if logs_channel:
-                await logs_channel.send(
-                    embed = create_logs_embed(
-                        title="No Winner Found",
-                        description=f"No winner found in the voting channel.",
-                        color=discord.Color.red()
-                    )
-                )
-            logger.warn("No winner found.")
-            return None
-
         announcement_channel = await get_contest_announcement_channel(self.bot, guild_id= guild_id)
         if announcement_channel is None:
             if logs_channel:
@@ -511,6 +464,159 @@ class ContestJobs:
                     )
                 )
             logger.warn("Announcement channel not set.")
+            return None
+
+        now = datetime.now(settings.bot_timezone)
+        current_month = now.month
+        current_year = now.year
+
+        current_winner: Winner | None = None
+        top_votes = 0
+
+        for thread in voting_channel.threads:
+            # Only consider threads from the current month/year
+            if thread.created_at.month != current_month or thread.created_at.year != current_year:
+                continue
+
+            # Find the first image post in the thread
+            image_message = await find_first_image_post_for_forum_thread(thread)
+            if not image_message or not image_message.attachments:
+                continue
+
+            # Count votes
+            vote_count = sum(r.count for r in image_message.reactions)
+
+            # Pick the first valid image attachment
+            attachment = next(
+                a for a in image_message.attachments
+                if a.content_type and a.content_type.startswith("image/")
+            )
+
+            # Skip posts with 1 or fewer votes
+            if vote_count <= 1:
+                continue
+
+            # Create a candidate Winner object
+            candidate = Winner(
+                bot=self.bot,
+                thread=thread,
+                user=image_message.author,
+                attachment=attachment,
+                votes=vote_count,
+            )
+            await candidate.async_init(guild, self.submissions_collection)
+            logger.debug(f"Evaluating candidate: {candidate.thread_id}/{candidate.user_mention} ({vote_count} votes, roll {candidate.current_roll})")
+
+            # First valid winner
+            if current_winner is None:
+                current_winner = candidate
+                top_votes = vote_count
+                logger.debug(
+                    f"Initial winner {candidate.thread_id} ({vote_count} votes, roll {candidate.current_roll})"
+                )
+                continue
+
+            # More votes always wins
+            if vote_count > top_votes:
+                current_winner = candidate
+                top_votes = vote_count
+                logger.debug(
+                    f"New winner by votes: {candidate.thread_id} ({vote_count} votes)"
+                )
+                continue
+
+            # Tie → use dice rolls as tiebreaker
+            if vote_count == top_votes:
+                cw = current_winner
+
+                if announcement_channel is not None:
+                    await announcement_channel.send(
+                        **build_discord_embed_with_role_ping(
+                            title="Vote Tie Detected: Rolling Two D10 Dice Each 🎲",
+                            description=(
+                                f"A tie in votes was detected! Dice rolls will decide the winner.\n\n"
+                                f"**Incumbent:** ({cw.user_mention})\n"
+                                f"• Rolls: {cw.current_roll[0]} + {cw.current_roll[1]} (2D10)\n"
+                                f"• Total: **{cw.roll_total}**\n\n"
+                                f"**Challenger:** ({candidate.user_mention})\n"
+                                f"• Rolls: {candidate.current_roll[0]} + {candidate.current_roll[1]} (2D10)\n"
+                                f"• Total: **{candidate.roll_total}**"
+                            ),
+                            roles=[cw.user_mention, candidate.user_mention],
+                            color=discord.Color.gold()
+                        )
+                    )
+
+                if candidate.roll_total == cw.roll_total:
+                    # Perfect tie → reroll
+
+                    logger.debug(f"Perfect tie detected; current role: {candidate.rolls} vs {cw.rolls}")
+                    roll_with_rerolls(candidate, True)
+                    roll_with_rerolls(cw, True)
+                    logger.debug(f"Perfect tie detected; reroll: {candidate.rolls} vs {cw.rolls}")
+
+                    if announcement_channel is not None:
+                        await announcement_channel.send(
+                            **build_discord_embed_with_role_ping(
+                                title="Perfect Tie Detected: Rerolling Dice 🎲",
+                                description=(
+                                    f"A perfect tie was detected! Rerolling the dice to determine the winner.\n\n"
+                                    f"**Incumbent:** ({cw.user_mention})\n"
+                                    f"• Rolls: {cw.current_roll[0]} + {cw.current_roll[1]} (2D10)\n"
+                                    f"• Total: **{cw.roll_total}**\n\n"
+                                    f"**Challenger:** ({candidate.user_mention})\n"
+                                    f"• Rolls: {candidate.current_roll[0]} + {candidate.current_roll[1]} (2D10)\n"
+                                    f"• Total: **{candidate.roll_total}**"
+                                ),
+                                roles=[cw.user_mention, candidate.user_mention],
+                                color=discord.Color.orange()
+                            )
+                        )
+
+                if candidate.roll_total > cw.roll_total:
+                    current_winner = candidate
+                    if announcement_channel is not None:
+                        await announcement_channel.send(
+                            **build_discord_embed_with_role_ping(
+                                title="Tiebreak Winner Determined 🏆",
+                                description=(
+                                    f"The challenger has won the tiebreak!\n\n"
+                                    f"**Winning Thread:** {candidate.thread.name}\n"
+                                    f"**Winner:** {candidate.user_mention}\n"
+                                    f"**Dice Total:** {candidate.roll_total} (vs {cw.roll_total})"
+                                ),
+                                roles=[candidate.user_mention],
+                                color=discord.Color.green()
+                            )
+                        )
+                else:
+                    if announcement_channel is not None:
+                        await announcement_channel.send(
+                            **build_discord_embed_with_role_ping(
+                                title="Tiebreak Winner Determined 🏆",
+                                description=(
+                                    f"The incumbent remains the winner after the tiebreak.\n\n"
+                                    f"**Winning Thread:** {cw.thread.name}\n"
+                                    f"**Winner:** {cw.user_mention}\n"
+                                    f"**Dice Total:** {cw.roll_total} (vs {candidate.roll_total})"
+                                ),
+                                roles=[cw.user_mention],
+                                color=discord.Color.blue()
+                            )
+                        )
+
+        logger.debug(f"Selected winner: {current_winner}")
+
+        if not current_winner:
+            if logs_channel:
+                await logs_channel.send(
+                    embed = create_logs_embed(
+                        title="No Winner Found",
+                        description=f"No winner found in the voting channel.",
+                        color=discord.Color.red()
+                    )
+                )
+            logger.warn("No winner found.")
             return None
 
         contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
@@ -526,40 +632,31 @@ class ContestJobs:
                 )
             logger.warn("Contest ping role not set.")
 
-        for thread_id, image_url, votes in winners:
+        logger.info(f"Announcing winner: {current_winner.user_display_name}/{current_winner.user_mention} with {current_winner.votes} votes.")
 
-            winner = await self.submissions_collection.find_one({"thread_id": thread_id})
-            if not winner:
-                continue
-            user = guild.get_member(winner["user_id"])
-            if not user:
-                continue
+        await announcement_channel.send(
+            **build_discord_embed_with_thumbnail_and_image_and_role_ping(
+                title=f"Winner: {current_winner.user_display_name}",
+                description=(
+                    f"{current_winner.user_mention} has won the art contest with {current_winner.votes} votes! Congratulations!"
+                ),
+                roles=[contest_ping_role, current_winner.user_mention],
+                thumbnail_url=current_winner.user.avatar.url if current_winner.user.avatar else None,
+                image_url=current_winner.attachment.url if current_winner.attachment else None,
+                color=discord.Color.green()
+            )
+        )
 
-            logger.info(f"Announcing winner: {user.display_name} with {votes} votes.")
-            continue
-
-            await announcement_channel.send(
-                **build_discord_embed_with_thumbnail_and_role_ping(
-                    title=f"Winner: {user.display_name}",
-                    description=(
-                        f"{user.mention} has won the art contest with {votes} votes! Congratulations!"
-                    ),
-                    roles=[contest_ping_role, user.mention],
-                    thumbnail_url=user.avatar.url,
-                    color=discord.Color.green()
+        if logs_channel:
+            await logs_channel.send(
+                embed = create_logs_embed(
+                    title="Winner Announced",
+                    description=f"Winner announced in the voting channel: {current_winner.user_mention}.",
+                    color=discord.Color.green(),
+                    thumbnails=current_winner.user.avatar.url if current_winner.user.avatar else None
                 )
             )
 
-            if logs_channel:
-                await logs_channel.send(
-                    embed = create_logs_embed(
-                        title="Winner Announced",
-                        description=f"Winner announced in the voting channel.",
-                        color=discord.Color.green(),
-                        thumbnails=user.avatar.url
-                    )
-                )
-            return None
         return None
 
 
