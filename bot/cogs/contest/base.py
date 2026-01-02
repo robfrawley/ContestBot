@@ -57,6 +57,16 @@ class ContestManager(commands.Cog):
                 description=f"{message.author.mention} submitted a message without an image attachment. Not taking any action.",
                 color=discord.Color.orange()
             )
+            await message.reply(
+                **build_discord_embed_with_role_ping(
+                    title="Invalid Submission",
+                    description=(
+                        f"Invalid submission format of type `text/plain` provided. **Please submit a single image file.**"
+                    ),
+                    roles=message.author.mention,
+                    color=discord.Color.red()
+                )
+            )
             return
 
         if not attachment.content_type or not attachment.content_type.startswith("image/"):
